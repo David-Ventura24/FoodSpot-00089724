@@ -5,17 +5,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,11 +43,35 @@ fun HomeScreen(
     val groupedRestaurants by viewModel.groupedRestaurants.collectAsState()
     val totalItems by cartViewModel.totalItems.collectAsState(initial = 0)
     val favoriteIds by favoritesViewModel.favoriteIds.collectAsState()
+    val selectedPriceRange by viewModel.selectedPriceRange.collectAsState()
+    val selectedCategory by viewModel.selectedCategory.collectAsState()
+
+    var showFilterSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+
+    val favorites = groupedRestaurants.values.flatten()
+        .filter { favoriteIds.contains(it.id) }
+        .distinctBy { it.id }
+
+    val activeFilters = if (selectedPriceRange != "Todos") 1 else 0
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("FoodSpot", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    BadgedBox(
+                        badge = {
+                            if (activeFilters > 0) {
+                                Badge { Text("$activeFilters") }
+                            }
+                        }
+                    ) {
+                        IconButton(onClick = { showFilterSheet = true }) {
+                            Icon(Icons.Default.Tune, contentDescription = "Filtros")
+                        }
+                    }
+                },
                 actions = {
                     IconButton(onClick = onNavigateToSearch) {
                         Icon(Icons.Default.Search, contentDescription = "Buscar")
@@ -67,16 +92,92 @@ fun HomeScreen(
         }
     ) { padding ->
 
+        if (showFilterSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showFilterSheet = false },
+                sheetState = sheetState
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 32.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Filtrar por precio",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+
+                    Text(
+                        text = "Precio promedio del menú",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        viewModel.priceRanges.forEach { range ->
+                            FilterChip(
+                                selected = selectedPriceRange == range,
+                                onClick = { viewModel.setPriceRange(range) },
+                                label = { Text(range) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
+                    HorizontalDivider()
+
+                    OutlinedButton(
+                        onClick = { viewModel.setPriceRange("Todos") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Limpiar filtro")
+                    }
+
+                    Button(
+                        onClick = { showFilterSheet = false },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Ver resultados")
+                    }
+                }
+            }
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-            // Sección de favoritos
-            val favorites = groupedRestaurants.values.flatten()
-                .filter { favoriteIds.contains(it.id) }
-                .distinctBy { it.id }
+
+            item {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    item {
+                        FilterChip(
+                            selected = selectedCategory == "Todas",
+                            onClick = { viewModel.setCategory("Todas") },
+                            label = { Text("Todas") }
+                        )
+                    }
+                    items(viewModel.officialCategories) { category ->
+                        FilterChip(
+                            selected = selectedCategory == category,
+                            onClick = { viewModel.setCategory(category) },
+                            label = { Text(category) }
+                        )
+                    }
+                }
+            }
 
             if (favorites.isNotEmpty()) {
                 item {
@@ -84,7 +185,7 @@ fun HomeScreen(
                         text = "Mis Favoritos",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
                     )
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -93,7 +194,7 @@ fun HomeScreen(
                         items(favorites) { restaurante ->
                             RestaurantCard(
                                 restaurante = restaurante,
-                                isFavorite = favoriteIds.contains(restaurante.id),
+                                isFavorite = true,
                                 onFavoriteClick = { favoritesViewModel.toggleFavorite(restaurante) },
                                 onClick = { onNavigateToDetail(restaurante.id) }
                             )
@@ -102,26 +203,61 @@ fun HomeScreen(
                 }
             }
 
-            // Restaurantes por categoría
-            groupedRestaurants.forEach { (categoria, listaDeRestaurantes) ->
+            if (groupedRestaurants.isEmpty() || groupedRestaurants.values.all { it.isEmpty() }) {
                 item {
-                    Text(
-                        text = categoria,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        items(listaDeRestaurantes) { restaurante ->
-                            RestaurantCard(
-                                restaurante = restaurante,
-                                isFavorite = favoriteIds.contains(restaurante.id),
-                                onFavoriteClick = { favoritesViewModel.toggleFavorite(restaurante) },
-                                onClick = { onNavigateToDetail(restaurante.id) }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+
+                            Text(
+                                text = "No hay restaurantes disponibles",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                    }
+                }
+            }
+
+            groupedRestaurants.forEach { (categoria, listaDeRestaurantes) ->
+                // Solo renderizar el bloque de categoría si tiene elementos, o si no se ha aplicado filtro
+                if (listaDeRestaurantes.isNotEmpty() || selectedPriceRange == "Todos") {
+                    item {
+                        Text(
+                            text = categoria,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
+                        )
+
+                        if (listaDeRestaurantes.isEmpty()) {
+                            Text(
+                                text = "No hay opciones en esta categoría",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(start = 24.dp, bottom = 16.dp)
+                            )
+                        } else {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp)
+                            ) {
+                                items(listaDeRestaurantes) { restaurante ->
+                                    RestaurantCard(
+                                        restaurante = restaurante,
+                                        isFavorite = favoriteIds.contains(restaurante.id),
+                                        onFavoriteClick = { favoritesViewModel.toggleFavorite(restaurante) },
+                                        onClick = { onNavigateToDetail(restaurante.id) }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -181,8 +317,6 @@ fun RestaurantCard(
                         }
                     }
                 )
-
-
                 IconButton(
                     onClick = onFavoriteClick,
                     modifier = Modifier
@@ -196,7 +330,6 @@ fun RestaurantCard(
                     )
                 }
             }
-
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(
                     text = restaurante.name,
