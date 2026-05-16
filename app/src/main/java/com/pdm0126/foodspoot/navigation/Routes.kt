@@ -14,4 +14,11 @@ sealed class Routes() : NavKey {
 
     @Serializable
     data class Detail(val restaurantId: Int) : Routes()
+    @Serializable
+    data object Cart: Routes()
+
+
+    @Serializable
+    data object OrderSuccess : Routes()
 }
+
