@@ -44,7 +44,6 @@ fun HomeScreen(
     val totalItems by cartViewModel.totalItems.collectAsState(initial = 0)
     val favoriteIds by favoritesViewModel.favoriteIds.collectAsState()
     val selectedPriceRange by viewModel.selectedPriceRange.collectAsState()
-    val selectedCategory by viewModel.selectedCategory.collectAsState()
 
     var showFilterSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
@@ -157,35 +156,13 @@ fun HomeScreen(
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
 
-            item {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    item {
-                        FilterChip(
-                            selected = selectedCategory == "Todas",
-                            onClick = { viewModel.setCategory("Todas") },
-                            label = { Text("Todas") }
-                        )
-                    }
-                    items(viewModel.officialCategories) { category ->
-                        FilterChip(
-                            selected = selectedCategory == category,
-                            onClick = { viewModel.setCategory(category) },
-                            label = { Text(category) }
-                        )
-                    }
-                }
-            }
-
             if (favorites.isNotEmpty()) {
                 item {
                     Text(
                         text = "Mis Favoritos",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
                     )
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -215,7 +192,7 @@ fun HomeScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-
+                            Text(text = "🍽️", style = MaterialTheme.typography.displayMedium)
                             Text(
                                 text = "No hay restaurantes disponibles",
                                 style = MaterialTheme.typography.bodyLarge,
@@ -227,7 +204,6 @@ fun HomeScreen(
             }
 
             groupedRestaurants.forEach { (categoria, listaDeRestaurantes) ->
-                // Solo renderizar el bloque de categoría si tiene elementos, o si no se ha aplicado filtro
                 if (listaDeRestaurantes.isNotEmpty() || selectedPriceRange == "Todos") {
                     item {
                         Text(

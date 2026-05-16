@@ -60,7 +60,6 @@ fun DetailScreen(
                     }
                 },
                 actions = {
-                    // Botón de favorito
                     IconButton(
                         onClick = {
                             restaurant?.let { favoritesViewModel.toggleFavorite(it) }
@@ -73,7 +72,6 @@ fun DetailScreen(
                         )
                     }
 
-                    // Botón de carrito con badge
                     BadgedBox(
                         badge = {
                             if (totalItems > 0) {
