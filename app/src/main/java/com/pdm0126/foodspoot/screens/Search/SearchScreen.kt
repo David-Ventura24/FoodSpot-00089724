@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,16 +19,20 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.pdm0126.foodspoot.model.Restaurant
+import com.pdm0126.foodspoot.screens.cart.CartViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     navigateToDetail: (Int) -> Unit,
     onBack: () -> Unit,
+    onNavigateToCart: () -> Unit,
+    cartViewModel: CartViewModel,
     viewModel: SearchViewModel = viewModel()
 ) {
     val query by viewModel.query.collectAsState()
     val results by viewModel.results.collectAsState()
+    val totalItems by cartViewModel.totalItems.collectAsState(initial = 0)
 
     Scaffold(
         topBar = {
@@ -40,6 +45,19 @@ fun SearchScreen(
                             contentDescription = "Volver"
                         )
                     }
+                },
+                actions = {
+                    BadgedBox(
+                        badge = {
+                            if (totalItems > 0) {
+                                Badge { Text("$totalItems") }
+                            }
+                        }
+                    ) {
+                        IconButton(onClick = onNavigateToCart) {
+                            Icon(Icons.Default.ShoppingCart, contentDescription = "Carrito")
+                        }
+                    }
                 }
             )
         }
@@ -50,7 +68,6 @@ fun SearchScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
         ) {
-
             OutlinedTextField(
                 value = query,
                 onValueChange = { viewModel.onQueryChange(it) },
@@ -65,7 +82,6 @@ fun SearchScreen(
                 singleLine = true
             )
 
-
             if (query.isNotEmpty()) {
                 Text(
                     text = "${results.size} resultado${if (results.size != 1) "s" else ""} encontrado${if (results.size != 1) "s" else ""}",
@@ -75,9 +91,7 @@ fun SearchScreen(
                 )
             }
 
-
             if (query.isNotEmpty() && results.isEmpty()) {
-
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -100,7 +114,6 @@ fun SearchScreen(
                     }
                 }
             } else {
-
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(bottom = 16.dp)

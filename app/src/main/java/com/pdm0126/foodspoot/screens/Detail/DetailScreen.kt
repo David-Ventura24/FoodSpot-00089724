@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.pdm0126.foodspoot.model.Dish
+import com.pdm0126.foodspoot.screens.Favorites.FavoritesViewModel
 import com.pdm0126.foodspoot.screens.cart.CartViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,10 +34,13 @@ fun DetailScreen(
     onBack: () -> Unit,
     onNavigateToCart: () -> Unit,
     cartViewModel: CartViewModel,
+    favoritesViewModel: FavoritesViewModel,
     viewModel: DetailViewModel = viewModel()
 ) {
     val restaurant by viewModel.restaurant.collectAsState()
     val totalItems by cartViewModel.totalItems.collectAsState(initial = 0)
+    val favoriteIds by favoritesViewModel.favoriteIds.collectAsState()
+    val isFavorite = favoriteIds.contains(restaurantId)
     val context = LocalContext.current
 
     LaunchedEffect(restaurantId) {
@@ -54,6 +60,20 @@ fun DetailScreen(
                     }
                 },
                 actions = {
+                    // Botón de favorito
+                    IconButton(
+                        onClick = {
+                            restaurant?.let { favoritesViewModel.toggleFavorite(it) }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = if (isFavorite) "Quitar favorito" else "Agregar favorito",
+                            tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Botón de carrito con badge
                     BadgedBox(
                         badge = {
                             if (totalItems > 0) {

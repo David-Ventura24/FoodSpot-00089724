@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Warning
@@ -24,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.SubcomposeAsyncImage
 import com.pdm0126.foodspoot.model.Restaurant
+import com.pdm0126.foodspoot.screens.Favorites.FavoritesViewModel
 import com.pdm0126.foodspoot.screens.cart.CartViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,10 +36,12 @@ fun HomeScreen(
     onNavigateToDetail: (Int) -> Unit,
     onNavigateToCart: () -> Unit,
     cartViewModel: CartViewModel,
+    favoritesViewModel: FavoritesViewModel,
     viewModel: HomeViewModel = viewModel()
 ) {
     val groupedRestaurants by viewModel.groupedRestaurants.collectAsState()
     val totalItems by cartViewModel.totalItems.collectAsState(initial = 0)
+    val favoriteIds by favoritesViewModel.favoriteIds.collectAsState()
 
     Scaffold(
         topBar = {
@@ -68,6 +73,36 @@ fun HomeScreen(
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
+            // Sección de favoritos
+            val favorites = groupedRestaurants.values.flatten()
+                .filter { favoriteIds.contains(it.id) }
+                .distinctBy { it.id }
+
+            if (favorites.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "Mis Favoritos",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) {
+                        items(favorites) { restaurante ->
+                            RestaurantCard(
+                                restaurante = restaurante,
+                                isFavorite = favoriteIds.contains(restaurante.id),
+                                onFavoriteClick = { favoritesViewModel.toggleFavorite(restaurante) },
+                                onClick = { onNavigateToDetail(restaurante.id) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Restaurantes por categoría
             groupedRestaurants.forEach { (categoria, listaDeRestaurantes) ->
                 item {
                     Text(
@@ -83,6 +118,8 @@ fun HomeScreen(
                         items(listaDeRestaurantes) { restaurante ->
                             RestaurantCard(
                                 restaurante = restaurante,
+                                isFavorite = favoriteIds.contains(restaurante.id),
+                                onFavoriteClick = { favoritesViewModel.toggleFavorite(restaurante) },
                                 onClick = { onNavigateToDetail(restaurante.id) }
                             )
                         }
@@ -94,52 +131,71 @@ fun HomeScreen(
 }
 
 @Composable
-fun RestaurantCard(restaurante: Restaurant, onClick: () -> Unit) {
+fun RestaurantCard(
+    restaurante: Restaurant,
+    isFavorite: Boolean,
+    onFavoriteClick: () -> Unit,
+    onClick: () -> Unit
+) {
     Card(
         onClick = onClick,
         modifier = Modifier.width(220.dp),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column {
-            SubcomposeAsyncImage(
-                model = restaurante.imageUrl,
-                contentDescription = "Imagen de ${restaurante.name}",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop,
-                loading = {
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.LightGray),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Cargando imagen...",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.DarkGray
-                        )
+            Box {
+                SubcomposeAsyncImage(
+                    model = restaurante.imageUrl,
+                    contentDescription = "Imagen de ${restaurante.name}",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop,
+                    loading = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.LightGray),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Cargando imagen...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.DarkGray
+                            )
+                        }
+                    },
+                    error = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0xFFE0E0E0)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Error al cargar",
+                                tint = Color.Gray
+                            )
+                        }
                     }
-                },
-                error = {
+                )
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color(0xFFE0E0E0)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = "Error al cargar",
-                            tint = Color.Gray
-                        )
-                    }
+
+                IconButton(
+                    onClick = onFavoriteClick,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (isFavorite) "Quitar favorito" else "Agregar favorito",
+                        tint = if (isFavorite) Color.Red else Color.White
+                    )
                 }
-            )
+            }
 
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(
